@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Admin Command Center - LoanTrack</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-light">
+<div class="container mt-5 mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>👑 Admin Command Center</h2>
+        <div>
+            <a th:href="@{/profile}" class="btn btn-secondary me-2">⚙️ Profile</a>
+            <a th:href="@{/admin/export/loans}" class="btn btn-success me-2">📥 Export Report</a>
+            
+            <form th:action="@{/logout}" method="post" class="d-inline">
+                <button type="submit" class="btn btn-outline-danger">Logout</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white shadow-sm border-0">
+                <div class="card-body">
+                    <h6 class="text-uppercase mb-1">Total Disbursed</h6>
+                    <h3 class="mb-0">₹<span th:text="${#numbers.formatDecimal(totalDisbursed, 1, 'COMMA', 2, 'POINT')}"></span></h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white shadow-sm border-0">
+                <div class="card-body">
+                    <h6 class="text-uppercase mb-1">Total Collected</h6>
+                    <h3 class="mb-0">₹<span th:text="${#numbers.formatDecimal(totalCollected, 1, 'COMMA', 2, 'POINT')}"></span></h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark shadow-sm border-0">
+                <div class="card-body">
+                    <h6 class="text-uppercase mb-1">Total Outstanding</h6>
+                    <h3 class="mb-0">₹<span th:text="${#numbers.formatDecimal(totalOutstanding, 1, 'COMMA', 2, 'POINT')}"></span></h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white shadow-sm border-0">
+                <div class="card-body">
+                    <h6 class="text-uppercase mb-1">Active Portfolios</h6>
+                    <h3 class="mb-0" th:text="${activeLoansCount} + ' Loans'"></h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-5">
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-header bg-white fw-bold">Financial Distribution</div>
+                <div class="card-body">
+                    <canvas id="financeChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-header bg-dark text-white fw-bold">
+                    Pending Final Approvals
+                </div>
+                <div class="card-body p-0">
+                    <div th:if="${param.approved}" class="alert alert-success m-3">Loan Approved & EMI Schedule generated!</div>
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>App ID</th>
+                                <th>Applicant</th>
+                                <th>Amount</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="app : ${applications}">
+                                <td th:text="${app.applicationId}"></td>
+                                <td th:text="${app.user.fullName}"></td>
+                                <td th:text="'₹' + ${app.loanAmount}"></td>
+                                <td>
+                                    <form th:action="@{/admin/approve/{id}(id=${app.applicationId})}" method="post" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                                    </form>
+                                    <form th:action="@{/admin/reject/{id}(id=${app.applicationId})}" method="post" class="d-inline">
+                                        <input type="hidden" name="reason" value="Rejected by Admin">
+                                        <button type="submit" class="btn btn-sm btn-danger">Reject</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(applications)}">
+                                <td colspan="4" class="text-center py-4 text-muted">Queue is clear!</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white fw-bold">
+                    🏦 Active Loan Portfolios
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Loan ID</th>
+                                <th>Borrower Name</th>
+                                <th>Disbursed</th>
+                                <th>Outstanding</th>
+                                <th>Next EMI Date</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="loan : ${activeLoans}">
+                                <td th:text="${loan.loanId}"></td>
+                                <td class="fw-bold" th:text="${loan.user.fullName}"></td>
+                                <td th:text="'₹' + ${#numbers.formatDecimal(loan.principalAmount, 1, 'COMMA', 2, 'POINT')}"></td>
+                                <td class="text-danger" th:text="'₹' + ${#numbers.formatDecimal(loan.outstandingBalance, 1, 'COMMA', 2, 'POINT')}"></td>
+                                <td th:text="${loan.endDate}"></td>
+                                <td>
+                                    <a th:href="@{/admin/loan/{id}(id=${loan.loanId})}" class="btn btn-sm btn-outline-primary">View Ledger</a>
+                                </td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(activeLoans)}">
+                                <td colspan="6" class="text-center py-4 text-muted">No active loans in the system.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    const disbursed = /*[[${totalDisbursed}]]*/ 0;
+    const collected = /*[[${totalCollected}]]*/ 0;
+    const outstanding = /*[[${totalOutstanding}]]*/ 0;
+
+    const ctx = document.getElementById('financeChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Collected (Revenue)', 'Outstanding (At Risk)'],
+            datasets: [{
+                data: [collected, outstanding],
+                backgroundColor: ['#198754', '#ffc107'],
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+</script>
+</body>
+</html>
